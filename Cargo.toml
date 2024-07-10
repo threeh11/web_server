@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 futures = { version = "0.3.30", features = ["thread-pool"] }
+tokio = { version = "1", features = ["full"] }
 threadpool = "1.8.1"

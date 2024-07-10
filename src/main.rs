@@ -1,32 +1,36 @@
-use std::{fs, io::{prelude::*, BufReader}, net::{TcpListener, TcpStream}};
-use web_server::ThreadPool;
-use std::env;
+use tokio::io::AsyncWriteExt;
+use tokio::net::TcpListener;
 
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-    // Аналог
-    // use std::thread;
-    // let pool = rayon::ThreadPoolBuilder::new()
-    //     .num_threads(4)
-    //     .build()
-    //     .unwrap();
-    let pools = ThreadPool::new(10);
+#[tokio::main]
+// #[tokio::main] - макрос, создает внутренний runtime под капотом
+//
+// #[tokio::main]
+// async fn main() {
+//     println!("hello");
+// }
 
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
+// Аналог
 
-        pools.execute(|| {
-            handle_connection(stream);
-        });
+//fn main() {
+//     let mut rt = tokio::runtime::Runtime::new().unwrap();
+//
+//     rt.block_on(async {
+//         println!("hello");
+//     })
+// }
+async fn main() {
+    let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
+
+    while let Ok((stream, _)) = listener.accept().await {
+        tokio::spawn(handle_connection(stream));
     }
 }
 
-fn handle_connection(mut stream: TcpStream) {
+async fn handle_connection(mut stream: tokio::net::TcpStream) {
     let contents = String::from("Ура ты попал на сайт");
     let length = contents.len();
 
-    let response =
-        format!("HTTP/1.1 200 OK\r\nContent-Length: {length}\r\n\r\n{contents}");
+    let response = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {length}\r\n\r\n{contents}");
 
-    stream.write_all(response.as_bytes()).unwrap();
+    stream.write_all(response.as_bytes()).await.unwrap();
 }
