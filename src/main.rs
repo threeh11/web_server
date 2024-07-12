@@ -1,3 +1,6 @@
+mod config;
+
+use config::server_config::Config;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 
@@ -18,12 +21,16 @@ use tokio::net::TcpListener;
 //         println!("hello");
 //     })
 // }
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = Config::new("src\\config\\config.yaml")?;
+
     let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
 
     while let Ok((stream, _)) = listener.accept().await {
         tokio::spawn(handle_connection(stream));
     }
+
+    Ok(())
 }
 
 async fn handle_connection(mut stream: tokio::net::TcpStream) {

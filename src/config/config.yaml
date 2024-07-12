@@ -1,0 +1,58 @@
+main:
+  worker_processes: 1
+  worker_connections: 1024
+  pid: "web_server.pid"
+  error_log: "web_server.error.log"
+  events:
+    worker_connections: 1024
+    multi_accept: true
+
+http:
+  servers:
+    - listen: 80
+      server_name: example.com
+      root: /var/www/example.com
+      index: index.html
+      locations:
+        - uri: /
+          proxy_pass: http://localhost:8080
+          fastcgi_pass: unix:/var/run/php5-fpm.sock
+          return_code: 200
+          rewrite:
+            - regex: ^(.*)$
+              replacement: $1
+      ssl:
+        certificate: /etc/ssl/example.com.crt
+        certificate_key: /etc/ssl/example.com.key
+        protocols: [TLSv1.2]
+
+  upstream:
+    servers:
+      localhost:
+        server: localhost:8080
+        weight: 1
+
+  gzip:
+    on: true
+    level: 6
+    types: [text/html, application/json]
+
+  log_format: combined
+  access_log:
+    - path: /var/log/web_server/access.log
+      format: combined
+
+  error_page:
+    error_pages:
+      404: /404.html
+      500: /500.html
+
+mail:
+  servers:
+    - listen: 25
+      protocol: smtp
+      auth:
+        methods: [plain, login]
+        password_file: /etc/web_server/mail_password
+
+include: []
