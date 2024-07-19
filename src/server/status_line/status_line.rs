@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum HttpVersion {
     HTTP1_1,
     HTTP2,
@@ -389,4 +389,59 @@ impl StatusLine {
             descr_status_code: self.descr_status_code.take(),
         })
     }
+}
+
+//@todo подумать куда выносить тесты
+
+#[cfg(test)]
+mod test_status_line {
+    use super::*;
+
+    #[test]
+    fn success_create_status_line() {
+        const TEST_HTTP_VERSION: HttpVersion = HttpVersion::HTTP3;
+        const TEST_STATUS_CODE: HttpStatus = HttpStatus::OK;
+
+        let res_status_line = StatusLine::new()
+            .set_http_version(TEST_HTTP_VERSION)
+            .set_status_code(TEST_STATUS_CODE)
+            .build();
+
+        match res_status_line {
+            Ok(status_line) => {
+                assert_eq!(status_line.http_version, Some(TEST_HTTP_VERSION));
+                assert_eq!(status_line.status_code, Some(TEST_STATUS_CODE));
+            },
+            Err(_) => panic!("Expected successful status line creation, but got an error"),
+        }
+    }
+
+    #[test]
+    fn test_http_version_not_set_error() {
+        const TEST_STATUS_CODE: HttpStatus = HttpStatus::OK;
+
+        let res_status_line = StatusLine::new()
+            .set_status_code(TEST_STATUS_CODE)
+            .build();
+
+        match res_status_line {
+            Ok(_) => panic!("Expected an error due to unset HTTP version, but got Ok"),
+            Err(e) => assert_eq!(e.message, "Версия http не была установлена"),
+        }
+    }
+
+    #[test]
+    fn test_status_code_not_set_error() {
+        const TEST_HTTP_VERSION: HttpVersion = HttpVersion::HTTP3;
+
+        let res_status_line = StatusLine::new()
+            .set_http_version(TEST_HTTP_VERSION)
+            .build();
+
+        match res_status_line {
+            Ok(_) => panic!("Expected an error due to unset status code, but got Ok"),
+            Err(e) => assert_eq!(e.message, "Код состояния не был установлен"),
+        }
+    }
+
 }
