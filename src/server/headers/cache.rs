@@ -1,22 +1,3 @@
-//Cache-Control — это HTTP-заголовок, который используется для управления кэшированием
-//данных в промежуточных серверах и браузерах. Этот заголовок позволяет указать, как долго данные
-//могут быть сохранены в кэше, и при каких условиях они могут быть использованы повторно.
-//Cache-Control может использоваться как в запросах, так и в ответах.
-
-// Пример вызова
-// let cache_control = CacheControl::new()
-//         .caching_method(false) // public
-//         .no_cache(false)
-//         .no_store(false)
-//         .max_age(3600)
-//         .build();
-//
-//     match cache_control {
-//         Ok(cc) => println!("{:?}", cc),
-//         Err(e) => println!("Error: {:?}", e),
-//     }
-
-// @todo подумать куда таки шутки выносить
 struct CachingMethodType(u8);
 pub const PRIVATE_CACHING_METHOD: CachingMethodType = 0;
 pub const PUBLIC_CACHING_METHOD: CachingMethodType = 1;

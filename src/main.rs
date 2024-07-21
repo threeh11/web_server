@@ -1,10 +1,6 @@
 mod config;
 mod server;
 
-use config::server_config::Config;
-use server::http_response::StatusLine;
-use server::http_response::{HttpStatus, HttpVersion};
-
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 
@@ -27,11 +23,6 @@ use tokio::net::TcpListener;
 // }
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let config = Config::new("src\\config\\config.yaml")?;
-
-    let status_line = StatusLine::new()
-        .set_http_version(HttpVersion::HTTP2)
-        .set_status_code(HttpStatus::OK)
-        .build();
 
     let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
 
