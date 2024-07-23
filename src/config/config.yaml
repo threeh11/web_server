@@ -11,7 +11,7 @@ http:
   servers:
     - listen: 8080
       server_name: example.com
-      root: /var/www/example.com
+      root: /var/www/example
       index: index.html
       locations:
         - uri: /
