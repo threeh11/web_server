@@ -88,7 +88,6 @@ impl CacheControl {
         self
     }
 
-    // Паттерн называется строитель)
     pub fn build(&self) -> Result<Self, CacheControlError> {
         // Тут надо будет запилить всевозможную валидацию
         if PRIVATE_CACHING_METHOD != self.caching_method && PUBLIC_CACHING_METHOD != self.caching_method {

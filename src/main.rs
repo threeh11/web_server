@@ -1,43 +1,64 @@
 mod config;
 mod server;
 
+use bytes::Bytes;
+use std::convert::Infallible;
+use http_body_util::Full;
+
+use std::net::{SocketAddr};
 use tokio::io::AsyncWriteExt;
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener};
+use hyper::{Request, Response};
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use hyper_util::rt::{TokioIo};
+use crate::config::server_config::{Config, Server};
+use std::collections::HashMap;
+use uuid::{ContextV7, Timestamp, Uuid};
 
 #[tokio::main]
-// #[tokio::main] - макрос, создает внутренний runtime под капотом
-//
-// #[tokio::main]
-// async fn main() {
-//     println!("hello");
-// }
-
-// Аналог
-
-//fn main() {
-//     let mut rt = tokio::runtime::Runtime::new().unwrap();
-//
-//     rt.block_on(async {
-//         println!("hello");
-//     })
-// }
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let config = Config::new("src\\config\\config.yaml")?;
+    let config = Config::new("src/config/config.yaml")?;
 
-    let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
+    let servers_conf: Vec<Server> = config.http.servers;
+    let mut tasks = HashMap::new();
 
-    while let Ok((stream, _)) = listener.accept().await {
-        tokio::spawn(handle_connection(stream));
+    for server_conf in &servers_conf {
+        let uuid: Uuid = Uuid::new_v7(Timestamp::from_unix(ContextV7::new(), 1497624119, 1234));
+        let port = String::from(&server_conf.listen).parse()?;
+        let addr: SocketAddr = SocketAddr::from(([127, 0, 0, 1], port));
+        let listener: TcpListener = TcpListener::bind(&addr).await?;
+
+        let task = tokio::spawn(async move {
+            loop {
+                let (stream, _) = listener.accept().await.unwrap();
+                let io = TokioIo::new(stream);
+
+                tokio::task::spawn(async move {
+                    if let Err(err) = http1::Builder::new()
+                        .serve_connection(io, service_fn(handle_connection))
+                        .await
+                    {
+                        println!("Error serving connection: {:?}", err);
+                    }
+                });
+            }
+        });
+
+        tasks.insert(uuid, task);
+        println!("Запущен сервер с UUID: {}", uuid);
+    }
+
+    println!("Запущено {} серверов", tasks.len());
+
+    // Ожидаем завершения всех задач
+    for (_, task) in tasks {
+        task.await?;
     }
 
     Ok(())
 }
 
-async fn handle_connection(mut stream: tokio::net::TcpStream) {
-    let contents = String::from("Ура ты попал на сайт");
-    let length = contents.len();
-
-    let response = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {length}\r\n\r\n{contents}");
-
-    stream.write_all(response.as_bytes()).await.unwrap();
+async fn handle_connection(request: Request<impl hyper::body::Body>) -> Result<Response<Full<Bytes>>, Infallible> {
+    Ok(Response::new(Full::new(Bytes::from("Hello World!"))))
 }

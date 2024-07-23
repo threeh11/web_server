@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::Read;
-use std::path::PathBuf;
 use serde_yaml;
 use serde::{Deserialize, Serialize};
 
