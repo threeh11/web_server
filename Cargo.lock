@@ -731,6 +731,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "num_cpus",
  "serde",
  "serde_yaml",
  "threadpool",

@@ -1,5 +1,5 @@
 main:
-  worker_processes: 1
+  worker_processes: 10
   worker_connections: 1024
   pid: "web_server.pid"
   error_log: "web_server.error.log"
@@ -9,77 +9,9 @@ main:
 
 http:
   servers:
-    - listen: 8080
-      server_name: example.com
-      root: /var/www/example
-      index: index.html
-      locations:
-        - uri: /
-          proxy_pass: http://localhost:8080
-          fastcgi_pass: unix:/var/run/php5-fpm.sock
-          return_code: 200
-          rewrite:
-            - regex: ^(.*)$
-              replacement: $1
-      ssl:
-        certificate: /etc/ssl/example.com.crt
-        certificate_key: /etc/ssl/example.com.key
-        protocols: [ TLSv1.2 ]
-
-    - listen: 8081
-      server_name: example.com
-      root: /var/www/example.com
-      index: index.html
-      locations:
-        - uri: /
-          proxy_pass: http://localhost:8080
-          fastcgi_pass: unix:/var/run/php5-fpm.sock
-          return_code: 200
-          rewrite:
-            - regex: ^(.*)$
-              replacement: $1
-      ssl:
-        certificate: /etc/ssl/example.com.crt
-        certificate_key: /etc/ssl/example.com.key
-        protocols: [ TLSv1.2 ]
-
-    - listen: 8082
-      server_name: example.com
-      root: /var/www/example.com
-      index: index.html
-      locations:
-        - uri: /
-          proxy_pass: http://localhost:8080
-          fastcgi_pass: unix:/var/run/php5-fpm.sock
-          return_code: 200
-          rewrite:
-            - regex: ^(.*)$
-              replacement: $1
-      ssl:
-        certificate: /etc/ssl/example.com.crt
-        certificate_key: /etc/ssl/example.com.key
-        protocols: [ TLSv1.2 ]
-
     - listen: 8083
       server_name: example.com
-      root: /var/www/example.com
-      index: index.html
-      locations:
-        - uri: /
-          proxy_pass: http://localhost:8080
-          fastcgi_pass: unix:/var/run/php5-fpm.sock
-          return_code: 200
-          rewrite:
-            - regex: ^(.*)$
-              replacement: $1
-      ssl:
-        certificate: /etc/ssl/example.com.crt
-        certificate_key: /etc/ssl/example.com.key
-        protocols: [ TLSv1.2 ]
-
-    - listen: 8084
-      server_name: example.com
-      root: /var/www/example.com
+      root: /var/www/example
       index: index.html
       locations:
         - uri: /
