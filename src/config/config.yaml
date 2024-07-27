@@ -2,7 +2,11 @@ main:
   worker_processes: auto
   worker_connections: 1024
   pid: "web_server.pid"
+
   error_log: /home/threeh/web_server/logs/
+  access_log: /home/threeh/web_server/logs/access/
+  error_log_level: error
+
   events:
     worker_connections: 1024
     multi_accept: true

@@ -27,6 +27,10 @@ pub struct Main {
     #[serde(default)]
     pub error_log: String,
     #[serde(default)]
+    pub error_log_level: String,
+    #[serde(default)]
+    pub access_log: String,
+    #[serde(default)]
     pub events: Events,
 }
 
@@ -218,6 +222,8 @@ impl Default for Main {
             worker_connections: 1024,
             pid: String::new(),
             error_log: String::new(),
+            access_log: String::new(),
+            error_log_level: String::new(),
             events: Default::default(),
         }
     }

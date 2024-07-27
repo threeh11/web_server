@@ -16,13 +16,17 @@ use crate::config::server_config::{Config, Server, WorkerProcesses};
 use std::collections::HashMap;
 use std::{fs};
 use std::path::Path;
+use log::{error, info};
 use uuid::{ContextV7, Timestamp, Uuid};
-use crate::logger::{ErrorLogger, LevelsLogger};
+use crate::logger::{JexusLogger, LevelsLogger};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::new("src/config/config.yaml")?;
-    let path_error_log = Path::new(&config.main.error_log).to_str().unwrap();
-    ErrorLogger::new(LevelsLogger::Info, path_error_log).build_logger()?;
+
+    // Инициализируем логгер
+    JexusLogger::new(&config.main).init()
+        .expect("Error to initialize JexusLogger");
+
     let servers_conf: Vec<Server> = config.http.servers;
     let worker_processes: WorkerProcesses = config.main.worker_processes;
     let worker_threads: usize;
@@ -33,6 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         WorkerProcesses::Number(worker_processes_count ) => {
             if (worker_processes_count as usize > num_cpus + 10) {
+                error!("worker_processes - set value, exceeding the number of cores by 10");
                 panic!("worker_processes - set value, exceeding the number of cores by 10");
             }
             worker_threads = worker_processes_count as usize;
@@ -95,6 +100,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn handle_connection(request: Request<impl hyper::body::Body>) -> Result<Response<Full<Bytes>>, Infallible> {
+    let user_agent = request.headers().get("User-Agent").map(|value| value.to_str().unwrap_or("Unknown")).unwrap_or("Unknown");
+    info!("Request: {} {} - User-Agent: {}", request.method(), request.uri(), user_agent);
     let base_path = Path::new("/home/threeh/test");
     let request_path = Path::new(request.uri().path());
 
