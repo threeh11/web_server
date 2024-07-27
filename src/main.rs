@@ -1,4 +1,5 @@
 mod config;
+mod logger;
 
 use bytes::Bytes;
 use std::convert::Infallible;
@@ -16,10 +17,12 @@ use std::collections::HashMap;
 use std::{fs};
 use std::path::Path;
 use uuid::{ContextV7, Timestamp, Uuid};
+use crate::logger::{ErrorLogger, LevelsLogger};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::new("src/config/config.yaml")?;
-
+    let path_error_log = Path::new(&config.main.error_log).to_str().unwrap();
+    ErrorLogger::new(LevelsLogger::Info, path_error_log).build_logger()?;
     let servers_conf: Vec<Server> = config.http.servers;
     let worker_processes: WorkerProcesses = config.main.worker_processes;
     let worker_threads: usize;
