@@ -1,6 +1,6 @@
 use std::path::Path;
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger, WriteMode};
-use crate::config::server_config::Main;
+use crate::config::config_parser::Main;
 
 pub enum LevelsLogger {
     Error,

@@ -37,7 +37,7 @@ pub struct Main {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Http {
     #[serde(default)]
-    pub servers: Vec<Server>,
+    pub servers: Vec<ServerByYaml>,
     #[serde(default)]
     pub upstream: Upstream,
     #[serde(default)]
@@ -59,7 +59,7 @@ pub struct Events {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Server {
+pub struct ServerByYaml {
     #[serde(default)]
     pub listen: usize,
     #[serde(default)]
@@ -251,9 +251,9 @@ impl Default for Events {
     }
 }
 
-impl Default for Server {
+impl Default for ServerByYaml {
     fn default() -> Self {
-        Server {
+        ServerByYaml {
             listen: 80,
             server_name: String::new(),
             root: String::new(),
@@ -377,5 +377,37 @@ impl Config {
         let config: Config = serde_yaml::from_str(&contents)?;
 
         Ok(config)
+    }
+}
+
+
+pub struct ConfigResolver {
+    pub servers: Vec<ServerByYaml>,
+    pub worker_processes: usize,
+}
+
+impl ConfigResolver {
+    pub fn get_parameters_by_config(config: Config) -> Self {
+        let servers: Vec<ServerByYaml> = config.http.servers;
+        let worker_processes: usize = Self::get_number_threads(config.main.worker_processes);
+        Self {
+            servers,
+            worker_processes,
+        }
+    }
+
+    fn get_number_threads(worker_processes: WorkerProcesses) -> usize {
+        let number_cpus : usize = num_cpus::get();
+        match worker_processes {
+            WorkerProcesses::Auto => {
+                number_cpus// auto - количество потоков
+            }
+            WorkerProcesses::Number(worker_processes_count ) => {
+                if (worker_processes_count as usize > number_cpus) {
+                    panic!("worker_processes - set value, exceeding the number of cores by 10");
+                }
+                worker_processes_count as usize
+            }
+        }
     }
 }
