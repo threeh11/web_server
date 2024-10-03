@@ -3,15 +3,15 @@ use hyper::server::conn::http1;
 use crate::TokioIo;
 use tokio::net::{TcpListener};
 use std::string::String;
-use crate::config::config_parser::{ServerByYaml};
+use crate::config::jexus_config::{Server};
 use crate::core::server::Server;
 
-pub struct ServerManager {
-    pub servers_by_config: Vec<ServerByYaml>,
+pub struct JexusServerManager {
+    pub servers_by_config: Vec<Server>,
 }
 
-impl ServerManager {
-    pub fn new(servers: Vec<ServerByYaml>) -> Self {
+impl JexusServerManager {
+    pub fn new(servers: Vec<Server>) -> Self {
         Self {
             servers_by_config: servers,
         }

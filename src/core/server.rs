@@ -8,9 +8,9 @@ use bytes::Bytes;
 use http_body_util::Full;
 use hyper::{Request, Response};
 use tokio::task::JoinHandle;
-use crate::config::config_parser::ServerByYaml;
+use crate::config::jexus_config::Server;
 
-pub struct Server {
+pub struct ServerD {
     pub uuid: Uuid,
     pub port: u16,
     pub socket_addr: SocketAddr,
@@ -18,8 +18,8 @@ pub struct Server {
     pub tasks_connection: HashMap<Uuid, JoinHandle<()>>,
 }
 
-impl Server {
-    pub fn new(server: &ServerByYaml) -> Self {
+impl ServerD {
+    pub fn new(server: &Server) -> Self {
         let port = server.listen as u16;
         let uuid: Uuid = Uuid::new_v7(Timestamp::from_unix(ContextV7::new(), 1497624119, 1234));
         Self {

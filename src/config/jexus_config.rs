@@ -5,7 +5,7 @@ use serde_yaml;
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Config {
+pub struct JexusConfig {
     #[serde(default)]
     pub main: Main,
     #[serde(default)]
@@ -37,7 +37,7 @@ pub struct Main {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Http {
     #[serde(default)]
-    pub servers: Vec<ServerByYaml>,
+    pub servers: Vec<Server>,
     #[serde(default)]
     pub upstream: Upstream,
     #[serde(default)]
@@ -59,7 +59,7 @@ pub struct Events {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ServerByYaml {
+pub struct Server {
     #[serde(default)]
     pub listen: usize,
     #[serde(default)]
@@ -251,9 +251,9 @@ impl Default for Events {
     }
 }
 
-impl Default for ServerByYaml {
+impl Default for Server {
     fn default() -> Self {
-        ServerByYaml {
+        Server {
             listen: 80,
             server_name: String::new(),
             root: String::new(),
@@ -381,14 +381,14 @@ impl Config {
 }
 
 
-pub struct ConfigResolver {
-    pub servers: Vec<ServerByYaml>,
+pub struct JexusConfigReader {
+    pub servers: Vec<Server>,
     pub worker_processes: usize,
 }
 
-impl ConfigResolver {
+impl JexusConfigReader {
     pub fn get_parameters_by_config(config: Config) -> Self {
-        let servers: Vec<ServerByYaml> = config.http.servers;
+        let servers: Vec<Server> = config.http.servers;
         let worker_processes: usize = Self::get_number_threads(config.main.worker_processes);
         Self {
             servers,
