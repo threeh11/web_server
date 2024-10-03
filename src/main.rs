@@ -1,12 +1,9 @@
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Request, Response, Server, StatusCode};
+use hyper::{Body, Request, Response, Server, StatusCode, Client};
 use hyper::header::CONTENT_TYPE;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use tokio::fs;
-use fastcgi_client::{Client, Params};
-use std::net::TcpStream;
-use std::io::Cursor;
 
 async fn handle_html_request(path: &str) -> Result<Response<Body>, Infallible> {
     let file_path: String = format!("public{}", path);
@@ -27,40 +24,25 @@ async fn handle_html_request(path: &str) -> Result<Response<Body>, Infallible> {
     Ok(response)
 }
 
-async fn handle_php_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let file_path: String = format!("public{}", "/index.php");
-
-    let stream: TcpStream = TcpStream::connect("127.0.0.1:9000").unwrap();
-    let mut client = Client::new(stream, false);
-
-    let params: Params<'_> = Params::new()
-        .set_request_method("GET")
-        .set_script_name("/index.php")
-        .set_script_filename(file_path.as_str())
-        .set_request_uri("/index.php")
-        .set_document_uri("/index.php")
-        .set_remote_addr("127.0.0.1")
-        .set_remote_port("9000")
-        .set_server_addr("127.0.0.1")
-        .set_server_port("80")
-        .set_server_name("localhost")
-        .set_content_type("")
-        .set_content_length("0");
-
-    // Чтение тела запроса в байты
-    let body_bytes = hyper::body::to_bytes(req.into_body()).await.unwrap();
-    let mut body_cursor = Cursor::new(body_bytes);
-
-    // Отправка запроса через FastCGI
-    let response = client.do_request(&params, &mut body_cursor).unwrap();
-
-    let response_body = response.get_stdout().unwrap();
-    let response: Response<Body> = Response::builder()
-        .header(CONTENT_TYPE, "text/html")
-        .body(Body::from(response_body))
+async fn handle_java_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    let client = Client::new();
+    let uri = format!("http://127.0.0.1:8180{}", req.uri().path());
+    let java_req = Request::builder()
+        .method(req.method())
+        .uri(uri)
+        .body(req.into_body())
         .unwrap();
 
-    Ok(response)
+    match client.request(java_req).await {
+        Ok(response) => Ok(response),
+        Err(e) => {
+            eprintln!("Ошибка при проксировании запроса на Java Spring Boot: {}", e);
+            Ok(Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from("Internal Server Error"))
+                .unwrap())
+        }
+    }
 }
 
 async fn handle_request(request: Request<Body>) -> Result<Response<Body>, Infallible> {
@@ -71,18 +53,8 @@ async fn handle_request(request: Request<Body>) -> Result<Response<Body>, Infall
         return handle_html_request(path).await;
     }
 
-    // Обработка PHP-скриптов через FastCGI
-    if path.ends_with(".php") {
-        return handle_php_request(request).await;
-    }
-
-    // Если файл не найден
-    let response = Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body(Body::from("Not Found"))
-        .unwrap();
-
-    Ok(response)
+    // Проксирование запросов на Java Spring Boot
+    handle_java_request(request).await
 }
 
 #[tokio::main]
