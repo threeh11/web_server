@@ -1,2 +1,2 @@
 pub mod jexus_config;
-mod default;
+pub mod default;

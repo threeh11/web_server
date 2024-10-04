@@ -204,9 +204,9 @@ where
     WorkerProcesses::deserialize(deserializer)
 }
 
-impl Default for Config {
+impl Default for JexusConfig {
     fn default() -> Self {
-        Config {
+        JexusConfig {
             main: Default::default(),
             http: Default::default(),
             mail: Default::default(),
@@ -366,15 +366,15 @@ impl Default for Ssl {
     }
 }
 
-impl Config {
-    pub fn new(file_name: &str) -> Result<Config, Box<dyn std::error::Error>> {
+impl JexusConfig {
+    pub fn new(file_name: &str) -> Result<JexusConfig, Box<dyn std::error::Error>> {
         let current_dir = std::env::current_dir()?;
         let config_path = current_dir.join(file_name);
         let mut file = File::open(config_path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
 
-        let config: Config = serde_yaml::from_str(&contents)?;
+        let config: JexusConfig = serde_yaml::from_str(&contents)?;
 
         Ok(config)
     }
@@ -387,7 +387,7 @@ pub struct JexusConfigReader {
 }
 
 impl JexusConfigReader {
-    pub fn get_parameters_by_config(config: Config) -> Self {
+    pub fn get_parameters_by_config(config: JexusConfig) -> Self {
         let servers: Vec<Server> = config.http.servers;
         let worker_processes: usize = Self::get_number_threads(config.main.worker_processes);
         Self {
@@ -403,7 +403,7 @@ impl JexusConfigReader {
                 number_cpus// auto - количество потоков
             }
             WorkerProcesses::Number(worker_processes_count ) => {
-                if (worker_processes_count as usize > number_cpus) {
+                if worker_processes_count as usize > number_cpus {
                     panic!("worker_processes - set value, exceeding the number of cores by 10");
                 }
                 worker_processes_count as usize
