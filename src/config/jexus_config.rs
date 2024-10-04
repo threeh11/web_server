@@ -3,6 +3,8 @@ use std::io::Read;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_yaml;
 use std::collections::HashMap;
+use std::path::Path;
+use crate::os::file_manager;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct JexusConfigYaml {
@@ -367,26 +369,37 @@ impl Default for Ssl {
 }
 
 impl JexusConfigYaml {
-    pub fn new(file_name: &str) -> Result<JexusConfigYaml, Box<dyn std::error::Error>> {
-        // todo переписать тут надо будет скорее всего
-        let current_dir = std::env::current_dir()?;
-        let config_path = current_dir.join(file_name);
-        let mut file = File::open(config_path)?;
+
+    pub fn new(path_yaml_conf: &str) -> Result<JexusConfigYaml, Box<dyn std::error::Error>>  {
+        let path_yaml_conf = Path::new(path_yaml_conf);
+
+        let file_manager = file_manager::FileManager::new_by_file(path_yaml_conf);
+        if !file_manager.exists_file() {
+            return Err("Не удалось найти файл".into());
+        }
+
+        // todo разобраться с правами, права есть но он все равно выдает ошибку
+        // if !file_manager.ok_permission_read() {
+        //     return Err("Недостаточно прав для чтения данного файла".into());
+        // }
+
+        let mut file = File::open(path_yaml_conf)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
-        Ok(serde_yaml::from_str(&contents)?)
+        let parse_config = serde_yaml::from_str::<JexusConfigYaml>(&contents)?;
+        Ok(parse_config)
     }
 }
 
 
-pub struct JexusConfigParsed<'a> {
-    pub servers: &'a Vec<Server>,
+pub struct JexusConfigComplied {
+    pub servers: Vec<Server>,
     pub worker_processes: usize,
 }
 
-impl JexusConfigParsed<'_> {
-    pub fn parse_by_yaml(config: JexusConfigYaml) -> Self {
-        let servers: &Vec<Server> = &config.http.servers;
+impl JexusConfigComplied {
+    pub fn complied(config: JexusConfigYaml) -> Self {
+        let servers: Vec<Server> = config.http.servers;
         let worker_processes: usize = Self::get_number_threads(config.main.worker_processes);
         Self {
             servers,
@@ -401,7 +414,7 @@ impl JexusConfigParsed<'_> {
                 number_cpus// auto - количество потоков
             }
             WorkerProcesses::Number(worker_processes_count ) => {
-                if (worker_processes_count as usize > number_cpus) {
+                if worker_processes_count as usize > number_cpus {
                     panic!("worker_processes - set value, exceeding the number of cores by 10");
                 }
                 worker_processes_count as usize
