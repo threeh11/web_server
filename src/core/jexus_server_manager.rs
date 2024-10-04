@@ -1,17 +1,17 @@
 use hyper::service::service_fn;
 use hyper::server::conn::http1;
-use crate::TokioIo;
+use hyper_util::rt::TokioIo;
 use tokio::net::{TcpListener};
 use std::string::String;
 use crate::config::jexus_config::{Server};
-use crate::core::server::Server;
+use crate::core::server::{Server, ServerHanler};
 
-pub struct JexusServerManager {
-    pub servers_by_config: Vec<Server>,
+pub struct JexusServerManager<'a> {
+    pub servers_by_config: &'a Vec<Server>,
 }
 
-impl JexusServerManager {
-    pub fn new(servers: Vec<Server>) -> Self {
+impl JexusServerManager<'_> {
+    pub fn new(servers: &Vec<Server>) -> Self {
         Self {
             servers_by_config: servers,
         }
@@ -19,8 +19,8 @@ impl JexusServerManager {
 
     pub async fn setup_servers(&mut self) -> Result<(), String> {
         for server_conf in self.servers_by_config {
-            let mut server = Server::new(&server_conf);
-            let listener: TcpListener = TcpListener::bind(&server.socket_addr).await?;
+            let mut server = ServerHanler::new(&server_conf);
+            let listener: TcpListener = TcpListener::bind(&server.socket_addr).await.unwrap();
 
             let task = tokio::spawn(async move {
                 loop {

@@ -5,7 +5,7 @@ use serde_yaml;
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct JexusConfig {
+pub struct JexusConfigYaml {
     #[serde(default)]
     pub main: Main,
     #[serde(default)]
@@ -204,9 +204,9 @@ where
     WorkerProcesses::deserialize(deserializer)
 }
 
-impl Default for Config {
+impl Default for JexusConfigYaml {
     fn default() -> Self {
-        Config {
+        JexusConfigYaml {
             main: Default::default(),
             http: Default::default(),
             mail: Default::default(),
@@ -366,29 +366,27 @@ impl Default for Ssl {
     }
 }
 
-impl Config {
-    pub fn new(file_name: &str) -> Result<Config, Box<dyn std::error::Error>> {
+impl JexusConfigYaml {
+    pub fn new(file_name: &str) -> Result<JexusConfigYaml, Box<dyn std::error::Error>> {
+        // todo переписать тут надо будет скорее всего
         let current_dir = std::env::current_dir()?;
         let config_path = current_dir.join(file_name);
         let mut file = File::open(config_path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
-
-        let config: Config = serde_yaml::from_str(&contents)?;
-
-        Ok(config)
+        Ok(serde_yaml::from_str(&contents)?)
     }
 }
 
 
-pub struct JexusConfigReader {
-    pub servers: Vec<Server>,
+pub struct JexusConfigParsed<'a> {
+    pub servers: &'a Vec<Server>,
     pub worker_processes: usize,
 }
 
-impl JexusConfigReader {
-    pub fn get_parameters_by_config(config: Config) -> Self {
-        let servers: Vec<Server> = config.http.servers;
+impl JexusConfigParsed<'_> {
+    pub fn parse_by_yaml(config: JexusConfigYaml) -> Self {
+        let servers: &Vec<Server> = &config.http.servers;
         let worker_processes: usize = Self::get_number_threads(config.main.worker_processes);
         Self {
             servers,

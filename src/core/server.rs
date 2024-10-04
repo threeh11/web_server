@@ -6,11 +6,11 @@ use std::net::{SocketAddr};
 use std::path::Path;
 use bytes::Bytes;
 use http_body_util::Full;
-use hyper::{Request, Response};
+use hyper::{Request, Response, StatusCode};
 use tokio::task::JoinHandle;
 use crate::config::jexus_config::Server;
 
-pub struct ServerD {
+pub struct ServerHanler {
     pub uuid: Uuid,
     pub port: u16,
     pub socket_addr: SocketAddr,
@@ -18,7 +18,7 @@ pub struct ServerD {
     pub tasks_connection: HashMap<Uuid, JoinHandle<()>>,
 }
 
-impl ServerD {
+impl ServerHanler {
     pub fn new(server: &Server) -> Self {
         let port = server.listen as u16;
         let uuid: Uuid = Uuid::new_v7(Timestamp::from_unix(ContextV7::new(), 1497624119, 1234));
@@ -47,7 +47,6 @@ impl ServerD {
 
         let full_path = base_path.join(Path::new(request_path_str));
 
-
         match fs::read(full_path) {
             Ok(contents) => Ok(Response::new(Full::from(Bytes::from(contents)))),
             Err(_) => Ok(Response::builder()
@@ -55,5 +54,9 @@ impl ServerD {
                 .body(Full::from("File not found"))
                 .unwrap()),
         }
+    }
+
+    pub async fn proxy(request: Request<impl hyper::body::Body>) -> Result<Response<Full<Bytes>>, Infallible> {
+
     }
 }

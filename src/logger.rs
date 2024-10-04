@@ -118,12 +118,12 @@ impl<'a> AppLogger<'a> {
     }
 }
 
-pub struct JexusLogger {
-    access_logger: AccessLogger,
-    error_logger: ErrorLogger,
+pub struct JexusLogger<'a> {
+    access_logger: AccessLogger<'a>,
+    error_logger: ErrorLogger<'a>,
 }
 
-impl<'a> JexusLogger {
+impl<'a> JexusLogger<'_> {
     pub fn new(
         main_config: &'a Main,
     ) -> Self {
