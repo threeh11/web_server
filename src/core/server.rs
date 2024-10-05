@@ -1,15 +1,64 @@
-// use std::collections::HashMap;
-// use std::convert::Infallible;
-// use std::{fs};
-// use uuid::{ContextV7, Timestamp, Uuid};
-// use std::net::{SocketAddr};
-// use std::path::Path;
-// use bytes::Bytes;
-// use http_body_util::Full;
-// use hyper::{Request, Response, StatusCode};
-// use tokio::task::JoinHandle;
-// use crate::config::jexus_config::Server;
-//
+use std::path::Path;
+use tokio::net::TcpListener;
+use std::net::{SocketAddr};
+use uuid::{ContextV7, Timestamp, Uuid};
+
+pub struct ServerInstance<'a> {
+    pub uuid: Uuid,
+    pub port: u16,
+    pub socket_addr: SocketAddr,
+    pub root_dir: &'a Path,
+}
+
+impl ServerInstance {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {
+            uuid: Self::generate_uuid(),
+            port: 0,
+            socket_addr: "0.0.0.0:0".parse().unwrap(),
+            root_dir: Path::new("").into(),
+        })
+    }
+
+    pub fn set_port(&mut self, port: u16) -> &mut Self {
+        // todo запилить норм проверку
+        // if capabilities::is_root() {
+        //     self.port = port;
+        // }
+        self.port = port;
+        self
+    }
+
+    pub fn set_root_dir(&mut self, root_dir: String) -> &mut Self {
+        self.root_dir = Path::new(root_dir.as_str()).into();
+        self
+    }
+
+    pub fn set_socket_addr(&mut self, socket_addr: SocketAddr) -> &mut Self {
+        // тут бы тоже проверочку
+        self.socket_addr = socket_addr;
+        self
+    }
+
+    pub async fn get_tcp_listener(&mut self) -> TcpListener {
+        TcpListener::bind(self.socket_addr).await.unwrap()
+    }
+
+    pub fn build(&self) -> Box<Self> {
+        Box::new(Self{
+            uuid: self.uuid,
+            port: self.port,
+            socket_addr: self.socket_addr,
+            root_dir: self.root_dir,
+        })
+    }
+
+    fn generate_uuid() -> Uuid {
+        Uuid::new_v7(Timestamp::from_unix(ContextV7::new(), 1497624119, 1234))
+    }
+
+}
+
 // pub struct ServerHanler {
 //     pub uuid: Uuid,
 //     pub port: u16,

@@ -1,9 +1,11 @@
 use std::error::Error;
 use crate::config::default;
 use crate::config::jexus_config::{JexusConfigYaml, JxsValidConfig};
+use crate::core::resolver::JxsResolver;
 
 pub struct Jexus {
     pub jxs_valid_config: JxsValidConfig,
+    pub resolver: JxsResolver,
     // pub jexus_logger: JexusLogger,
     // pub jexus_server_manager: JexusServerManager<'static>,
 }
@@ -11,6 +13,7 @@ pub struct Jexus {
 impl Jexus {
     pub fn init() -> Self {
         let parsed_config: JxsValidConfig = Self::get_complied_config().unwrap();
+        let resolver: JxsResolver = JxsResolver::new(Box::new(parsed_config)).build();
         // let servers: Vec<Server> = parsed_config.servers;
         // let mut jexus_server_manager: JexusServerManager = JexusServerManager::new(servers);
         //
