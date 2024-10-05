@@ -1,10 +1,10 @@
 use std::fs::File;
-use std::io::Read;
+use std::io::{Error, ErrorKind, Read};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_yaml;
-use std::collections::HashMap;
 use std::path::Path;
-use crate::os::file_manager;
+use hyper::Uri;
+use crate::os::file_manager::FileManager;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct JexusConfigYaml {
@@ -12,52 +12,18 @@ pub struct JexusConfigYaml {
     pub main: Main,
     #[serde(default)]
     pub http: Http,
-    #[serde(default)]
-    pub mail: Mail,
-    #[serde(default)]
-    pub include: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Main {
-    #[serde(deserialize_with = "deserialize_worker_processes")]
+    #[serde(default, deserialize_with = "deserialize_worker_processes")]
     pub worker_processes: WorkerProcesses,
-    #[serde(default)]
-    pub worker_connections: i32,
-    #[serde(default)]
-    pub pid: String,
-    #[serde(default)]
-    pub error_log: String,
-    #[serde(default)]
-    pub error_log_level: String,
-    #[serde(default)]
-    pub access_log: String,
-    #[serde(default)]
-    pub events: Events,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Http {
     #[serde(default)]
     pub servers: Vec<Server>,
-    #[serde(default)]
-    pub upstream: Upstream,
-    #[serde(default)]
-    pub gzip: Gzip,
-    #[serde(default)]
-    pub log_format: String,
-    #[serde(default)]
-    pub access_log: Vec<AccessLog>,
-    #[serde(default)]
-    pub error_page: ErrorPage,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Events {
-    #[serde(default)]
-    pub worker_connections: i32,
-    #[serde(default)]
-    pub multi_accept: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -65,15 +31,9 @@ pub struct Server {
     #[serde(default)]
     pub listen: usize,
     #[serde(default)]
-    pub server_name: String,
-    #[serde(default)]
     pub root: String,
     #[serde(default)]
-    pub index: String,
-    #[serde(default)]
     pub locations: Vec<Location>,
-    #[serde(default)]
-    pub ssl: Ssl,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -81,105 +41,21 @@ pub struct Location {
     #[serde(default)]
     pub uri: String,
     #[serde(default)]
+    pub index: String,
+    #[serde(default, deserialize_with = "deserialize_auto_index")]
+    pub auto_index: AutoIndex,
+    #[serde(default, deserialize_with = "deserialize_random_index")]
+    pub random_index: RandomIndex,
+    #[serde(default)]
     pub proxy_pass: String,
     #[serde(default)]
     pub fastcgi_pass: String,
-    #[serde(default)]
-    pub return_code: i32,
-    #[serde(default)]
-    pub rewrite: Vec<RewriteRule>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct RewriteRule {
-    #[serde(default)]
-    pub regex: String,
-    #[serde(default)]
-    pub replacement: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Upstream {
-    #[serde(default)]
-    pub servers: HashMap<String, UpstreamServer>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UpstreamServer {
-    #[serde(default)]
-    pub server: String,
-    #[serde(default)]
-    pub weight: i32,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Gzip {
-    #[serde(default)]
-    pub on: bool,
-    #[serde(default)]
-    pub level: i32,
-    #[serde(default)]
-    pub types: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct AccessLog {
-    #[serde(default)]
-    pub path: String,
-    #[serde(default)]
-    pub format: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ErrorPage {
-    #[serde(default)]
-    pub error_pages: HashMap<i32, String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Mail {
-    #[serde(default)]
-    pub servers: Vec<MailServer>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct MailServer {
-    #[serde(default)]
-    pub listen: String,
-    #[serde(default)]
-    pub protocol: String,
-    #[serde(default)]
-    pub auth: Auth,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Auth {
-    #[serde(default)]
-    pub methods: Vec<String>,
-    #[serde(default)]
-    pub password_file: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Ssl {
-    #[serde(default)]
-    pub certificate: String,
-    #[serde(default)]
-    pub certificate_key: String,
-    #[serde(default)]
-    pub protocols: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
 pub enum WorkerProcesses {
     Auto,
     Number(i32),
-}
-
-impl Default for WorkerProcesses {
-    fn default() -> Self {
-        WorkerProcesses::Number(1)
-    }
 }
 
 impl<'de> Deserialize<'de> for WorkerProcesses {
@@ -199,6 +75,7 @@ impl<'de> Deserialize<'de> for WorkerProcesses {
     }
 }
 
+
 fn deserialize_worker_processes<'de, D>(deserializer: D) -> Result<WorkerProcesses, D::Error>
 where
     D: Deserializer<'de>,
@@ -206,13 +83,83 @@ where
     WorkerProcesses::deserialize(deserializer)
 }
 
+#[derive(Debug, PartialEq, Serialize)]
+pub enum AutoIndex {
+    On,
+    Off
+}
+
+impl Default for AutoIndex {
+    fn default() -> Self {
+        AutoIndex::Off
+    }
+}
+
+impl<'de> Deserialize<'de> for AutoIndex {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>
+    {
+        let value: serde_yaml::Value = Deserialize::deserialize(deserializer)?;
+        match value {
+            serde_yaml::Value::String(s) if s == "off" => Ok(AutoIndex::Off),
+            serde_yaml::Value::String(s) if s == "on" => Ok(AutoIndex::On),
+            _ => Err(serde::de::Error::custom("Invalid type")),
+        }
+    }
+}
+
+fn deserialize_auto_index<'de, D>(deserializer: D) -> Result<AutoIndex, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    AutoIndex::deserialize(deserializer)
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+pub enum RandomIndex {
+    On,
+    Off
+}
+
+impl Default for RandomIndex {
+    fn default() -> Self {
+        RandomIndex::Off
+    }
+}
+
+impl<'de> Deserialize<'de> for RandomIndex {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>
+    {
+        let value: serde_yaml::Value = Deserialize::deserialize(deserializer)?;
+        match value {
+            serde_yaml::Value::String(s) if s == "off" => Ok(RandomIndex::Off),
+            serde_yaml::Value::String(s) if s == "on" => Ok(RandomIndex::On),
+            _ => Err(serde::de::Error::custom("Invalid type")),
+        }
+    }
+}
+
+fn deserialize_random_index<'de, D>(deserializer: D) -> Result<RandomIndex, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    RandomIndex::deserialize(deserializer)
+}
+
+impl Default for WorkerProcesses {
+    fn default() -> Self {
+        WorkerProcesses::Number(1)
+    }
+}
+
 impl Default for JexusConfigYaml {
     fn default() -> Self {
         JexusConfigYaml {
             main: Default::default(),
             http: Default::default(),
-            mail: Default::default(),
-            include: Default::default(),
         }
     }
 }
@@ -221,12 +168,6 @@ impl Default for Main {
     fn default() -> Self {
         Main {
             worker_processes: Default::default(),
-            worker_connections: 1024,
-            pid: String::new(),
-            error_log: String::new(),
-            access_log: String::new(),
-            error_log_level: String::new(),
-            events: Default::default(),
         }
     }
 }
@@ -235,20 +176,6 @@ impl Default for Http {
     fn default() -> Self {
         Http {
             servers: Default::default(),
-            upstream: Default::default(),
-            gzip: Default::default(),
-            log_format: String::new(),
-            access_log: Default::default(),
-            error_page: Default::default(),
-        }
-    }
-}
-
-impl Default for Events {
-    fn default() -> Self {
-        Events {
-            worker_connections: 1024,
-            multi_accept: false,
         }
     }
 }
@@ -257,11 +184,8 @@ impl Default for Server {
     fn default() -> Self {
         Server {
             listen: 80,
-            server_name: String::new(),
             root: String::new(),
-            index: String::new(),
             locations: Default::default(),
-            ssl: Default::default(),
         }
     }
 }
@@ -270,118 +194,27 @@ impl Default for Location {
     fn default() -> Self {
         Location {
             uri: String::new(),
+            index: String::from("index.html"),
+            auto_index: Default::default(),
+            random_index: Default::default(),
             proxy_pass: String::new(),
             fastcgi_pass: String::new(),
-            return_code: 0,
-            rewrite: Default::default(),
-        }
-    }
-}
-
-impl Default for RewriteRule {
-    fn default() -> Self {
-        RewriteRule {
-            regex: String::new(),
-            replacement: String::new(),
-        }
-    }
-}
-
-impl Default for Upstream {
-    fn default() -> Self {
-        Upstream {
-            servers: Default::default(),
-        }
-    }
-}
-
-impl Default for UpstreamServer {
-    fn default() -> Self {
-        UpstreamServer {
-            server: String::new(),
-            weight: 1,
-        }
-    }
-}
-
-impl Default for Gzip {
-    fn default() -> Self {
-        Gzip {
-            on: false,
-            level: 1,
-            types: Default::default(),
-        }
-    }
-}
-
-impl Default for AccessLog {
-    fn default() -> Self {
-        AccessLog {
-            path: String::new(),
-            format: String::new(),
-        }
-    }
-}
-
-impl Default for ErrorPage {
-    fn default() -> Self {
-        ErrorPage {
-            error_pages: Default::default(),
-        }
-    }
-}
-
-impl Default for Mail {
-    fn default() -> Self {
-        Mail {
-            servers: Default::default(),
-        }
-    }
-}
-
-impl Default for MailServer {
-    fn default() -> Self {
-        MailServer {
-            listen: String::new(),
-            protocol: String::new(),
-            auth: Default::default(),
-        }
-    }
-}
-
-impl Default for Auth {
-    fn default() -> Self {
-        Auth {
-            methods: Default::default(),
-            password_file: String::new(),
-        }
-    }
-}
-
-impl Default for Ssl {
-    fn default() -> Self {
-        Ssl {
-            certificate: String::new(),
-            certificate_key: String::new(),
-            protocols: Default::default(),
         }
     }
 }
 
 impl JexusConfigYaml {
-
-    pub fn new(path_yaml_conf: &str) -> Result<JexusConfigYaml, Box<dyn std::error::Error>>  {
+    pub fn parse(path_yaml_conf: &str) -> Result<JexusConfigYaml, Box<dyn std::error::Error>>  {
         let path_yaml_conf = Path::new(path_yaml_conf);
 
-        let file_manager = file_manager::FileManager::new_by_file(path_yaml_conf);
+        let file_manager = FileManager::new_by_file(path_yaml_conf);
         if !file_manager.exists_file() {
             return Err("Не удалось найти файл".into());
         }
 
-        // todo разобраться с правами, права есть но он все равно выдает ошибку
-        // if !file_manager.ok_permission_read() {
-        //     return Err("Недостаточно прав для чтения данного файла".into());
-        // }
+        if !file_manager.ok_permission_read() {
+            return Err("Недостаточно прав для чтения данного файла".into());
+        }
 
         let mut file = File::open(path_yaml_conf)?;
         let mut contents = String::new();
@@ -391,19 +224,165 @@ impl JexusConfigYaml {
     }
 }
 
+pub struct JxsValidConfig {
+    pub main: JxsMain,
+    pub http: JxsHttp,
+}
 
-pub struct JexusConfigComplied {
-    pub servers: Vec<Server>,
+pub struct JxsMain {
     pub worker_processes: usize,
 }
 
-impl JexusConfigComplied {
+pub struct JxsHttp {
+    pub servers: Vec<JxsServer>,
+}
+
+pub struct JxsServer {
+    pub listen: usize,
+    pub root: String,
+    pub locations: Vec<JxsLocation>,
+}
+
+pub struct JxsLocation {
+    pub uri: Uri,
+    pub index: String,
+    pub auto_index: AutoIndex,
+    pub random_index: RandomIndex,
+    pub proxy_pass: String,
+    pub fastcgi_pass: String,
+}
+
+impl JxsValidConfig {
     pub fn complied(config: JexusConfigYaml) -> Self {
-        let servers: Vec<Server> = config.http.servers;
-        let worker_processes: usize = Self::get_number_threads(config.main.worker_processes);
-        Self {
-            servers,
-            worker_processes,
+        let valid_main = Self::validate_main(config.main);
+        let valid_http = Self::validate_http(config.http);
+        match valid_http {
+            Ok(valid_http) => {
+                Self {
+                    main: valid_main,
+                    http: valid_http,
+                }
+            }
+            Err(error) => {
+                panic!("{}", error)
+            }
+        }
+
+    }
+
+    fn validate_http(http: Http) -> Result<JxsHttp, Box<dyn std::error::Error>> {
+        let servers = http.servers;
+        let mut valid_servers: Vec<JxsServer> = Vec::new();
+        for server in servers {
+            let valid_server = Self::validate_server(server);
+            match valid_server {
+                Ok(valid_server) => valid_servers.push(valid_server),
+                Err(error) => {
+                    return Err(error); // пока так хуярим))
+                }
+            }
+        }
+        Ok(JxsHttp {
+            servers: valid_servers,
+        })
+    }
+
+    fn validate_server(server: Server) -> Result<JxsServer, Box<dyn std::error::Error>> {
+        //check ports
+        //на возможность открыть порт этому пользователю будем проверять в ServerManager`e
+        if server.listen <= 0 && server.listen > 65535 {
+            return Err("Не валидное значение для открытия порта".into())
+        }
+
+        let valid_server_listen = server.listen;
+
+        // елси задали root то будем валидировать)
+        // if !server.root.is_empty() {
+        //     let fm: FileManager = FileManager::new_by_file(Path::new(server.root.as_str()));
+        //
+        //     if !fm.exists_file() {
+        //         return Err("Не удалось найти файл root для location".into())
+        //     }
+        //     // todo тут еще на права бы проверить
+        // }
+
+        let valid_server_root = server.root;
+
+        let locations = server.locations;
+        let mut valid_locations: Vec<JxsLocation> = Vec::new();
+        for location in locations {
+            let valid_location = Self::validate_location(location);
+            match valid_location {
+                Ok (location) => {
+                    valid_locations.push(location);
+                }
+                Err(error) => {
+                    return Err(error); // пока так хуярим))
+                }
+            }
+        }
+        Ok(JxsServer {
+            listen: valid_server_listen,
+            root: valid_server_root,
+            locations: valid_locations,
+        })
+    }
+
+    fn validate_location(location: Location) -> Result<JxsLocation, Box<dyn std::error::Error>> {
+        let uri: Uri = location.uri.parse().unwrap();
+        if uri.path().is_empty() || !uri.path().starts_with("/") {
+            return Err("Не валидное значение для uri в locations".into())
+        }
+
+        let mut count_handlers: i8 = 0;
+        if !location.index.is_empty() {
+            count_handlers += 1;
+        }
+        if location.auto_index == AutoIndex::On {
+            count_handlers += 1;
+        }
+        if location.random_index == RandomIndex::On {
+            count_handlers += 1;
+        }
+        if !location.proxy_pass.is_empty() {
+            count_handlers += 1;
+        }
+        if !location.fastcgi_pass.is_empty() {
+            count_handlers += 1;
+        }
+
+        if count_handlers > 1 {
+            return Err("Указано не валидное количество обработчиков locations".into())
+        }
+
+        // если задан index
+        if !location.index.is_empty() {
+            if
+                !location.index.ends_with(".html")
+                    && !location.index.ends_with(".php")
+                    && !location.index.ends_with(".json")
+                    && !location.index.ends_with(".xml")
+            {
+                return Err("Указано не валидное значение index locations".into())
+            }
+        }
+
+        // todo проверка на валидацию proxy_pass и на fastcgi
+
+        Ok(JxsLocation {
+            uri,
+            index: location.index,
+            auto_index: location.auto_index,
+            random_index: location.random_index,
+            proxy_pass: location.proxy_pass,
+            fastcgi_pass: location.fastcgi_pass,
+        })
+    }
+
+    fn validate_main(main: Main) -> JxsMain {
+        JxsMain {
+            worker_processes: Self::get_number_threads(main.worker_processes),
+            //тут потом еще добавим проверок
         }
     }
 

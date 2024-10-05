@@ -19,7 +19,7 @@ impl<'a> FileManager<'a> {
     }
 
     pub fn ok_permission_read(&self) -> bool {
-        fs::metadata(self.path_file).unwrap().permissions().readonly()
+        self.path_file.is_file()
     }
 
 }

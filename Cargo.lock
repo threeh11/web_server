@@ -961,6 +961,7 @@ dependencies = [
  "hyper-util",
  "log",
  "num_cpus",
+ "regex",
  "serde",
  "serde_yaml",
  "threadpool",
