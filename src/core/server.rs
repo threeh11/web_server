@@ -3,6 +3,7 @@ use tokio::net::TcpListener;
 use std::net::{SocketAddr};
 use uuid::{ContextV7, Timestamp, Uuid};
 
+#[derive(Eq, Hash, PartialEq)]
 pub struct ServerInstance<'a> {
     pub uuid: Uuid,
     pub port: u16,
@@ -10,7 +11,7 @@ pub struct ServerInstance<'a> {
     pub root_dir: &'a Path,
 }
 
-impl ServerInstance {
+impl ServerInstance<'_> {
     pub fn new() -> Box<Self> {
         Box::new(Self {
             uuid: Self::generate_uuid(),

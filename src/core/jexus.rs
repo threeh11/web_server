@@ -1,7 +1,10 @@
+use std::collections::HashMap;
 use std::error::Error;
 use crate::config::default;
 use crate::config::jexus_config::{JexusConfigYaml, JxsValidConfig};
+use crate::core::location::LocationInstance;
 use crate::core::resolver::JxsResolver;
+use crate::core::server::ServerInstance;
 
 pub struct Jexus {
     pub jxs_valid_config: JxsValidConfig,
@@ -11,9 +14,10 @@ pub struct Jexus {
 }
 
 impl Jexus {
-    pub fn init() -> Self {
+    pub fn init() {
         let parsed_config: JxsValidConfig = Self::get_complied_config().unwrap();
-        let resolver: JxsResolver = JxsResolver::new(Box::new(parsed_config)).build();
+        let resolver: HashMap<Box<ServerInstance>, Vec<Box<LocationInstance>>> = JxsResolver::new(Box::new(parsed_config)).build();
+        let tmp = resolver;
         // let servers: Vec<Server> = parsed_config.servers;
         // let mut jexus_server_manager: JexusServerManager = JexusServerManager::new(servers);
         //
@@ -23,11 +27,6 @@ impl Jexus {
         //     .build()
         //     .unwrap()
         //     .block_on(jexus_server_manager.setup_servers()).expect("TODO: panic message");
-
-        Self {
-            jxs_valid_config: parsed_config,
-            // jexus_server_manager
-        }
     }
 
     fn get_complied_config() -> Result<JxsValidConfig, Box<dyn Error>> {

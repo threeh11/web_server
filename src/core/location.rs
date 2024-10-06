@@ -1,19 +1,15 @@
 use hyper::Uri;
+use crate::jxs::http::index::HandlerFn;
 use crate::jxs::http::proxy::http_proxy_module;
 
-pub struct LocationInstance<T: http_proxy_module::HttpModuleModule> {
+pub struct LocationInstance {
     uri: Uri,
-    http_module: T,
+    pub get_handler: HandlerFn,
 }
 
-impl<T: http_proxy_module::HttpModuleModule> LocationInstance<T>{
-    pub fn new(uri: Uri, http_module: T) -> Self {
-        //todo кароч, сюды будем класть uri, и дефолтный обработчик из модуля, только перед этим его создадим
-        Self { uri, http_module }
-    }
-
-    pub fn get_handlers(&self) {
-        self.http_module.get_handlers();
+impl LocationInstance{
+    pub fn new(uri: Uri, get_handler: HandlerFn) -> Self {
+        Self { uri, get_handler }
     }
 
 }
