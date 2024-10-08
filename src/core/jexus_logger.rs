@@ -1,15 +1,17 @@
-use crate::config::jexus_config::Main;
-use crate::config::default::{ACCESS_LOG_PATH, ERROR_LOG_PATH};
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Write};
 use std::path::Path;
-use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger, WriteMode};
+use chrono::Local;
 
-#[derive(Debug)]
+use crate::config::jexus_config::JxsMain;
+use crate::config::default::{ACCESS_LOG_PATH, ERROR_LOG_PATH};
+
 pub enum LevelsLogger {
     Error,
     Warn,
     Info,
     Debug,
-    Trace
+    Trace,
 }
 
 impl LevelsLogger {
@@ -36,142 +38,118 @@ impl LevelsLogger {
 }
 
 #[derive(Debug)]
-struct ErrorLogger<'a> {
-    level: LevelsLogger,
-    path: &'a str,
+pub struct ErrorLogger {
+    path: String,
 }
 
-impl ErrorLogger<'_> {
-    fn new(level: LevelsLogger, path: &str) -> ErrorLogger {
-        ErrorLogger {
-            level,
-            path,
+impl ErrorLogger {
+    pub fn init(mut path: String) -> Self {
+        let path_ref: &Path = Path::new(&path);
+
+        match fs::create_dir_all(path_ref) {
+            Ok(_) => println!("Папка успешно создана!"),
+            Err(e) => println!("Ошибка при создании папки: {}", e)
         }
-    }
+        path.push_str("error.log");
+        let path_ref: &Path = Path::new(&path);
 
-    fn build_logger(&self) -> Result<(), Box<dyn std::error::Error>> {
-        Logger::try_with_str(self.level.to_str())?
-            .log_to_file(
-                FileSpec::default()
-                    .directory(self.path)
-                    .basename("error")
-                    .use_timestamp(false)
-                    .suffix("log")
-            )
-            .write_mode(WriteMode::Direct)
-            .format(detailed_format)
-            .duplicate_to_stderr(Duplicate::Error)
-            .start()?;
-        Ok(())
-    }
-
-}
-
-#[derive(Debug)]
-struct AccessLogger<'a> {
-    path: &'a str
-}
-
-impl AccessLogger<'_> {
-    fn new(path: &str) -> AccessLogger {
-        AccessLogger {
-            path,
+        if let Err(e) = fs::File::create(path_ref) {
+            println!("Ошибка при создании файла: {}", e);
+        } else {
+            println!("Файл успешно создан!");
         }
-    }
 
-    fn build_logger(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        Logger::try_with_str(LevelsLogger::Info.to_str())?
-            .log_to_file(
-                FileSpec::default()
-                    .directory(self.path)
-                    .basename("access")
-                    .use_timestamp(false)
-                    .suffix("log")
-            )
-            .write_mode(WriteMode::Direct)
-            .format(detailed_format)
-            .duplicate_to_stderr(Duplicate::Error)
-            .start()?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct AppLogger<'a> {
-    path: &'a Path
-}
-
-impl<'a> AppLogger<'a> {
-    fn new(path: &'a str) -> Self {
-        AppLogger {
-            path: Path::new(path),
-        }
-    }
-
-    fn build_logger(&self) -> Result<(), Box<dyn std::error::Error>> {
-        Logger::try_with_str("error")?
-            .log_to_file(
-                FileSpec::default()
-                    .directory(self.path.to_str().unwrap_or("."))
-                    .suffix("log")
-            )
-            .write_mode(WriteMode::Direct)
-            .format(detailed_format)
-            .duplicate_to_stderr(Duplicate::Error)
-            .start()?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct JexusLogger<'a> {
-    access_logger: AccessLogger<'a>,
-    error_logger: ErrorLogger<'a>,
-}
-
-impl<'a> JexusLogger<'a> {
-    pub fn new(main_config: &'a Main) -> Self {
-        let is_config: bool = main_config.error_log.is_empty();
-        let path_error_log: &str = if is_config { ERROR_LOG_PATH }
-            else { main_config.error_log.as_str() };
-
-        let is_config: bool = main_config.access_log.is_empty();
-        let path_access_log: &str = if is_config { ACCESS_LOG_PATH }
-            else { main_config.access_log.as_str() };
-
-        let level_logger: LevelsLogger = LevelsLogger::from_str(&main_config.error_log_level);
         Self {
-            access_logger: AccessLogger::new(path_access_log),
-            error_logger: ErrorLogger::new(level_logger, path_error_log),
+            path,
         }
     }
 
-    pub fn init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // App logger (flexi_logger) - будет логировать програмные ошибки и записыват в по дефолному пути
-        // todo next прокидывать это значение из конфигуратора сборки (см. https://nginx.org/ru/docs/configure.html)
-        match AppLogger::new("./logs/error.log").build_logger() {
-            Ok(_) => {},
-            Err(e) => {
-                panic!("Error initializing app logger: {}", e);
-            }
-        }
+    pub fn log_write(&self, message: &str) -> io::Result<()> {
+        let path_ref: &Path = Path::new(&self.path);
+        let mut file: File = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(path_ref).unwrap();
+        let timestamp: String = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let log_entry: String = format!("[{}] [{}] {}\n", timestamp, LevelsLogger::Error.to_str(), message);
 
-        match self.access_logger.build_logger() {
-            Ok(_) => {},
-            Err(e) => {
-                eprintln!("Error initializing access logger: {}", e);
-                return Err(e);
-            }
-        }
-
-        match self.error_logger.build_logger() {
-            Ok(_) => {},
-            Err(e) => {
-                eprintln!("Error initializing error logger: {}", e);
-                return Err(e);
-            }
-        }
-
+        let _ = file.write_all(log_entry.as_bytes()).unwrap();
         Ok(())
+    }
+}
+
+
+#[derive(Debug)]
+pub struct AccessLogger {
+    path: String,
+}
+
+impl AccessLogger {
+    pub fn init(mut path: String) -> Self {
+        let path_ref: &Path = Path::new(&path);
+
+        match fs::create_dir_all(path_ref) {
+            Ok(_) => println!("Папка успешно создана!"),
+            Err(e) => println!("Ошибка при создании папки: {}", e)
+        }
+        path.push_str("access.log");
+        let path_ref: &Path = Path::new(&path);
+
+        if let Err(e) = fs::File::create(path_ref) {
+            println!("Ошибка при создании файла: {}", e);
+        } else {
+            println!("Файл успешно создан!");
+        }
+        
+        Self {
+            path,
+        }
+    }
+
+    pub fn log_write(&self, message: &str) -> io::Result<()> {
+        let path_ref: &Path = Path::new(&self.path);
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(path_ref).unwrap();
+        let timestamp: String = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let log_entry: String = format!("[{}] [{}] {}\n", timestamp, LevelsLogger::Info.to_str(), message);
+
+        let _ = file.write_all(log_entry.as_bytes()).unwrap();
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct JxsLogger {
+    error_log: ErrorLogger,
+    access_log: AccessLogger,
+}
+
+impl JxsLogger {
+    pub fn new(main: &JxsMain) -> Self {
+        let error_log_path: String = Self::get_log_path(main.error_log.clone(), ERROR_LOG_PATH);
+        let access_log_path: String = Self::get_log_path(main.access_log.clone(), ACCESS_LOG_PATH);
+
+        Self {
+            error_log: ErrorLogger::init(error_log_path),
+            access_log: AccessLogger::init(access_log_path),
+        }
+    }
+
+    fn get_log_path(config: String, path: &str) -> String {
+        if config.is_empty() { 
+            path.to_string() 
+        } else {
+            config
+        }
+    }
+
+    pub fn log_write(&self, level: LevelsLogger, message: &str) {
+        match level {
+            LevelsLogger::Info => self.access_log.log_write(message).unwrap(),
+            LevelsLogger::Error => self.error_log.log_write(message).unwrap(),
+            LevelsLogger::Warn | LevelsLogger::Debug | LevelsLogger::Trace => todo!(),
+        }
     }
 }

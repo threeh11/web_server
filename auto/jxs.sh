@@ -1,8 +1,8 @@
 #!/bin/bash
 
-CONFIG_PATH="./src/config/config.yaml"
-ACCESS_LOG_PATH="./src/log/access.log"
-ERROR_LOG_PATH="./src/log/error.log"
+CONFIG_PATH="./jxs/config/config.yaml"
+ACCESS_LOG_PATH="./jxs/logs/access/"
+ERROR_LOG_PATH="./jxs/logs/error/"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in

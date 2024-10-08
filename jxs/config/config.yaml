@@ -1,0 +1,13 @@
+main:
+  worker_processes: auto
+  # error_log: /jxs/logs/error
+  # error_log_level: error
+  # access_log: /jxs/logs/access
+http:
+  servers:
+    - listen: 8083
+      server_name: example.com
+      root: /var/www
+      locations:
+        - uri: /
+          proxy_pass: http://localhost:8080

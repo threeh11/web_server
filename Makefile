@@ -1,7 +1,7 @@
 # Переменные
-CONFIG_PATH =./src/config/config.yaml
-ACCESS_LOG_PATH = /home/jxs-logs/access.log
-ERROR_LOG_PATH = /home/jxs-logs/error.log
+CONFIG_PATH =./jxs/config/config.yaml
+ACCESS_LOG_PATH = ./jxs/logs/access/
+ERROR_LOG_PATH = ./jxs/logs/error/
 
 # Цели
 .PHONY: all configure build clean
