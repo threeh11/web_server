@@ -83,7 +83,7 @@ where
     WorkerProcesses::deserialize(deserializer)
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize, Clone)]
 pub enum AutoIndex {
     On,
     Off
@@ -116,7 +116,7 @@ where
     AutoIndex::deserialize(deserializer)
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize, Clone)]
 pub enum RandomIndex {
     On,
     Off
@@ -237,12 +237,14 @@ pub struct JxsHttp {
     pub servers: Vec<JxsServer>,
 }
 
+#[derive(Clone)]
 pub struct JxsServer {
     pub listen: usize,
     pub root: String,
     pub locations: Vec<JxsLocation>,
 }
 
+#[derive(Clone)]
 pub struct JxsLocation {
     pub uri: Uri,
     pub index: String,

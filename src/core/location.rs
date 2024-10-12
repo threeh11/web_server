@@ -1,15 +1,17 @@
-use hyper::Uri;
-use crate::jxs::http::index::HandlerFn;
-use crate::jxs::http::proxy::http_proxy_module;
+use hyper::{Response, Uri};
+use crate::jxs::http::proxy::http_proxy_module::ProxyModule;
 
+#[derive(Clone)]
 pub struct LocationInstance {
     uri: Uri,
-    pub get_handler: HandlerFn,
+    module: ProxyModule
 }
 
-impl LocationInstance{
-    pub fn new(uri: Uri, get_handler: HandlerFn) -> Self {
-        Self { uri, get_handler }
+impl LocationInstance {
+    pub fn new(uri: Uri, module: ProxyModule) -> Self {
+        Self {
+            uri,
+            module: module.clone()
+        }
     }
-
 }

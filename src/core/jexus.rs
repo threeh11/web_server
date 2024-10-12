@@ -1,10 +1,8 @@
-use std::collections::HashMap;
 use std::error::Error;
 use crate::config::default;
 use crate::config::jexus_config::{JexusConfigYaml, JxsValidConfig};
-use crate::core::location::LocationInstance;
 use crate::core::resolver::JxsResolver;
-use crate::core::server::ServerInstance;
+use crate::core::server::VirtualHost;
 
 pub struct Jexus {
     pub jxs_valid_config: JxsValidConfig,
@@ -16,7 +14,8 @@ pub struct Jexus {
 impl Jexus {
     pub fn init() {
         let parsed_config: JxsValidConfig = Self::get_complied_config().unwrap();
-        let resolver: HashMap<Box<ServerInstance>, Vec<Box<LocationInstance>>> = JxsResolver::new(Box::new(parsed_config)).build();
+        let binding = JxsResolver::new(Box::new(parsed_config));
+        let resolver: Vec<Box<VirtualHost>> = binding.build();
         let tmp = resolver;
         // let servers: Vec<Server> = parsed_config.servers;
         // let mut jexus_server_manager: JexusServerManager = JexusServerManager::new(servers);
