@@ -1,6 +1,11 @@
+use std::convert::Infallible;
+use std::fs;
 use std::path::Path;
 use tokio::net::TcpListener;
 use std::net::{SocketAddr};
+use bytes::Bytes;
+use http_body_util::Full;
+use hyper::{body, Request, Response, StatusCode};
 use uuid::{ContextV7, Timestamp, Uuid};
 use crate::core::location::LocationInstance;
 
@@ -63,6 +68,31 @@ impl VirtualHost<'_> {
 
     fn generate_uuid() -> Uuid {
         Uuid::new_v7(Timestamp::from_unix(ContextV7::new(), 1497624119, 1234))
+    }
+
+    pub async fn handler(&self, request: Request<impl body::Body>) -> Result<Response<Full<Bytes>>, Infallible> {
+        let user_agent = request.headers().get("User-Agent").map(|value| value.to_str().unwrap_or("Unknown")).unwrap_or("Unknown");
+        // info!("Request: {} {} - User-Agent: {}", request.method(), request.uri(), user_agent);
+        let base_path = Path::new("/home/threeh/test");
+        let request_path = Path::new(request.uri().path());
+
+        let request_path_str = request_path.to_str().expect("Invalid Unicode in path");
+
+        let request_path_str = if request_path_str.starts_with('/') {
+            &request_path_str[1..]
+        } else {
+            request_path_str
+        };
+
+        let full_path = base_path.join(Path::new(request_path_str));
+
+        match fs::read(full_path) {
+            Ok(contents) => Ok(Response::new(Full::from(Bytes::from(contents)))),
+            Err(_) => Ok(Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(Full::from("File not found"))
+                .unwrap()),
+        }
     }
 
 }

@@ -1,6 +1,7 @@
 use std::error::Error;
 use crate::config::default;
 use crate::config::jexus_config::{JexusConfigYaml, JxsValidConfig};
+use crate::core::jexus_server_manager::JexusServerManager;
 use crate::core::resolver::JxsResolver;
 use crate::core::server::VirtualHost;
 
@@ -14,18 +15,15 @@ pub struct Jexus {
 impl Jexus {
     pub fn init() {
         let parsed_config: JxsValidConfig = Self::get_complied_config().unwrap();
-        let binding = JxsResolver::new(Box::new(parsed_config));
-        let resolver: Vec<Box<VirtualHost>> = binding.build();
-        let tmp = resolver;
-        // let servers: Vec<Server> = parsed_config.servers;
-        // let mut jexus_server_manager: JexusServerManager = JexusServerManager::new(servers);
-        //
-        // tokio::runtime::Builder::new_multi_thread()
-        //     .worker_threads(parsed_config.worker_processes)
-        //     .enable_all()
-        //     .build()
-        //     .unwrap()
-        //     .block_on(jexus_server_manager.setup_servers()).expect("TODO: panic message");
+        let servers = JxsResolver::resolve(Box::new(parsed_config));
+        let mut server_manager = JexusServerManager::new(servers);
+
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(server_manager.setup_servers()).expect("TODO: panic message");
     }
 
     fn get_complied_config() -> Result<JxsValidConfig, Box<dyn Error>> {
