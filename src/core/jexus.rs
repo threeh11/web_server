@@ -1,6 +1,6 @@
 use std::error::Error;
 use crate::config::default;
-use crate::config::jexus_config::{JexusConfigYaml, JxsValidConfig};
+use crate::config::jexus_config::{JxsConfigParsed, JxsValidConfig};
 use crate::core::jexus_server_manager::JexusServerManager;
 use crate::core::resolver::JxsResolver;
 use crate::core::server::VirtualHost;
@@ -27,7 +27,7 @@ impl Jexus {
     }
 
     fn get_complied_config() -> Result<JxsValidConfig, Box<dyn Error>> {
-        match JexusConfigYaml::parse(default::CONFIG_PATH) {
+        match JxsConfigParsed::parse(default::CONFIG_PATH) {
             Ok(config) => Ok(JxsValidConfig::complied(config)),
             Err(err) => Err(format!("Ошибка при работе с файлом конфигурации: {}", err).into()),
         }

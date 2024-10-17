@@ -1,21 +1,24 @@
 use std::fs::File;
-use std::io::{Error, ErrorKind, Read};
+use std::io::{Read};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_yaml;
 use std::path::Path;
 use hyper::Uri;
+use regex::Regex;
 use crate::os::file_manager::FileManager;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct JexusConfigYaml {
+pub struct JxsConfigParsed {
     #[serde(default)]
-    pub main: Main,
+    pub main: GlobalContext,
     #[serde(default)]
     pub http: Http,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Main {
+pub struct GlobalContext {
+    #[serde(default, deserialize_with = "deserialize_user")]
+    pub user: User,
     #[serde(default, deserialize_with = "deserialize_worker_processes")]
     pub worker_processes: WorkerProcesses,
 }
@@ -50,6 +53,43 @@ pub struct Location {
     pub proxy_pass: String,
     #[serde(default)]
     pub fastcgi_pass: String,
+}
+
+#[derive(Debug, Default, Serialize)]
+struct User {
+    usr_group: String,
+    usr_name: String,
+}
+
+impl<'de> Deserialize<'de> for User {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value: serde_yaml::Value = Deserialize::deserialize(deserializer)?;
+        match value {
+            serde_yaml::Value::String(s) => {
+                let parts: Vec<&str> = s.split_whitespace().collect();
+                if parts.len() == 2 {
+                    Ok(User{
+                        usr_group: parts[0].to_string(),
+                        usr_name: parts[1].to_string(),
+                    })
+                } else {
+                    Err(serde::de::Error::custom("user - не заданы оба параметра ('group user')"))
+                }
+            },
+            _ => Err(serde::de::Error::custom("Ошибка в задании дерективы user")),
+        }
+    }
+}
+
+
+fn deserialize_user<'de, D>(deserializer: D) -> Result<User, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    User::deserialize(deserializer)
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -155,18 +195,19 @@ impl Default for WorkerProcesses {
     }
 }
 
-impl Default for JexusConfigYaml {
+impl Default for JxsConfigParsed {
     fn default() -> Self {
-        JexusConfigYaml {
+        JxsConfigParsed {
             main: Default::default(),
             http: Default::default(),
         }
     }
 }
 
-impl Default for Main {
+impl Default for GlobalContext {
     fn default() -> Self {
-        Main {
+        GlobalContext {
+            user: User { usr_group: "".to_string(), usr_name: "".to_string() },
             worker_processes: Default::default(),
         }
     }
@@ -203,8 +244,8 @@ impl Default for Location {
     }
 }
 
-impl JexusConfigYaml {
-    pub fn parse(path_yaml_conf: &str) -> Result<JexusConfigYaml, Box<dyn std::error::Error>>  {
+impl JxsConfigParsed {
+    pub fn parse(path_yaml_conf: &str) -> Result<JxsConfigParsed, Box<dyn std::error::Error>>  {
         let path_yaml_conf = Path::new(path_yaml_conf);
 
         let file_manager = FileManager::new_by_file(path_yaml_conf);
@@ -219,10 +260,17 @@ impl JexusConfigYaml {
         let mut file = File::open(path_yaml_conf)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
-        let parse_config = serde_yaml::from_str::<JexusConfigYaml>(&contents)?;
+        let parse_config = serde_yaml::from_str::<JxsConfigParsed>(&contents)?;
         Ok(parse_config)
     }
 }
+
+
+
+
+
+
+
 
 pub struct JxsValidConfig {
     pub main: JxsMain,
@@ -230,6 +278,7 @@ pub struct JxsValidConfig {
 }
 
 pub struct JxsMain {
+    pub user: User,
     pub worker_processes: usize,
 }
 
@@ -255,21 +304,25 @@ pub struct JxsLocation {
 }
 
 impl JxsValidConfig {
-    pub fn complied(config: JexusConfigYaml) -> Self {
+    pub fn complied(config: JxsConfigParsed) -> Self {
         let valid_main = Self::validate_main(config.main);
         let valid_http = Self::validate_http(config.http);
-        match valid_http {
-            Ok(valid_http) => {
-                Self {
-                    main: valid_main,
-                    http: valid_http,
+        match valid_main {
+            Ok(main_value) => match valid_http {
+                Ok(http_value) => {
+                    Self {
+                        main: main_value,
+                        http: http_value,
+                    }
                 }
-            }
-            Err(error) => {
-                panic!("{}", error)
+                Err(http_error) => {
+                    panic!("Ошибка при валидации блока http: {}", http_error);
+                }
+            },
+            Err(main_error) => {
+                panic!("Ошибка при валидации блока main: {}", main_error);
             }
         }
-
     }
 
     fn validate_http(http: Http) -> Result<JxsHttp, Box<dyn std::error::Error>> {
@@ -381,24 +434,54 @@ impl JxsValidConfig {
         })
     }
 
-    fn validate_main(main: Main) -> JxsMain {
-        JxsMain {
-            worker_processes: Self::get_number_threads(main.worker_processes),
-            //тут потом еще добавим проверок
+    fn validate_main(main: GlobalContext) -> Result<JxsMain, Box<dyn std::error::Error>> {
+        let valid_user = Self::validate_user(main.user);
+        let valid_worker_processes = Self::validate_number_threads(main.worker_processes);
+        match valid_user {
+            Ok(user) => match valid_worker_processes {
+                Ok(worker_processes) => {
+                    Ok(JxsMain {
+                        user,
+                        worker_processes,
+                    })
+                }
+                Err(http_error) => {
+                    Err(http_error)
+                }
+            },
+            Err(main_error) => {
+                Err(main_error)
+            }
         }
     }
 
-    fn get_number_threads(worker_processes: WorkerProcesses) -> usize {
+    fn validate_user(user: User) -> Result<User, Box<dyn std::error::Error>> {
+        let reg = Regex::new(r"^[a-zA-Z0-9_.][a-zA-Z0-9_.-]{0,30}[a-zA-Z0-9_.]$")
+            .unwrap();
+
+        let usr = &user.usr_name;
+        let grp = &user.usr_group;
+
+        match reg.is_match(user.usr_group.as_str()) && reg.is_match(user.usr_name.as_str()) {
+            true => Ok(User {
+                usr_group: grp.clone(),
+                usr_name: usr.clone(),
+            }),
+            _ => Err("Указано не валидное значение user, смотри как создавать пользователей в линуксе".into())
+        }
+    }
+
+    fn validate_number_threads(worker_processes: WorkerProcesses) -> Result<usize, Box<dyn std::error::Error>> {
         let number_cpus : usize = num_cpus::get();
         match worker_processes {
             WorkerProcesses::Auto => {
-                number_cpus// auto - количество потоков
+                Ok(number_cpus)// auto - количество потоков
             }
             WorkerProcesses::Number(worker_processes_count ) => {
                 if worker_processes_count as usize > number_cpus {
-                    panic!("worker_processes - set value, exceeding the number of cores by 10");
+                    return Err("Указано не валидное значение worker_processes, больше чем число потоков".into())
                 }
-                worker_processes_count as usize
+                Ok(worker_processes_count as usize)
             }
         }
     }

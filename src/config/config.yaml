@@ -1,4 +1,5 @@
 main:
+  user: 'www www'
   worker_processes: auto
 http:
   servers:
