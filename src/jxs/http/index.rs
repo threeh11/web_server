@@ -1,14 +1,19 @@
+// Возвращает статичные файлы
 pub mod http_index_module {
-
-    // Возвращает статичные файлы
-    pub mod index_module {
+    pub struct IndexModule {
 
     }
 
-    // Возвращает список каталога
-    pub mod list_index_module {
 
-    }
-
-    // потом сюда штуки с кешем положим
 }
+
+// Возвращает список каталога
+pub mod http_list_index_module {
+
+    pub struct IndexListModule {
+
+    }
+
+}
+
+// потом сюда штуки с кешем положим

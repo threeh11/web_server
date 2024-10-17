@@ -2,6 +2,7 @@ mod config;
 mod logger;
 mod core;
 mod os;
+mod jxs;
 
 use crate::core::jexus::Jexus;
 
